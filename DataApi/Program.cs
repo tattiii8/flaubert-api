@@ -39,7 +39,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // 認証不要
-app.MapGet("/data/api/{version}/ping", (string version) =>
+app.MapGet("/data/api/{version}/health", (string version) =>
     Results.Ok(new { ok = true, version }))
    .AllowAnonymous();
 
@@ -55,7 +55,7 @@ app.MapGet("/data/api/{version}/issues", (string version, ClaimsPrincipal user) 
 
     var items = new[]
     {
-        new { Id = 1, Subject = "Developpment", AssignedTo = name, Status = "Open" },
+        new { Id = 1, Subject = "Developpment Integration", AssignedTo = name, Status = "Open" },
         new { Id = 2, Subject = "redmine-integration", AssignedTo = name, Status = "Closed" }
     };
     return Results.Ok(new { version, user = name, items });

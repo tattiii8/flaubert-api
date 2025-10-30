@@ -1,7 +1,7 @@
 # Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY DataApi/DataApi.csproj ./
+COPY DataApi.csproj ./
 RUN dotnet restore DataApi.csproj
 COPY . .
 RUN dotnet publish DataApi.csproj -c Release -o /app

@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # プロジェクトファイルをコピーしてリストア
-COPY AuthApi/AuthApi.csproj ./
+COPY AuthApi.csproj ./
 RUN dotnet restore AuthApi.csproj
 
 # 残りをコピーしてパブリッシュ
