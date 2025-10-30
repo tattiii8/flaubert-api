@@ -1,0 +1,129 @@
+name: Deploy Auth API
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/FlaubertAuthApi/**'
+      - 'flaubert-auth-api.nomad.hcl'
+      - '.github/workflows/deploy-auth-api.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/FlaubertAuthApi/**'
+
+env:
+  AWS_REGION: ap-northeast-1
+  ECR_REPOSITORY: flaubert-auth-api
+  SERVICE_NAME: auth-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore src/FlaubertAuthApi/FlaubertAuthApi.csproj
+      
+      - name: Build
+        run: dotnet build src/FlaubertAuthApi/FlaubertAuthApi.csproj --no-restore --configuration Release
+      
+      - name: Run tests
+        run: dotnet test src/FlaubertAuthApi.Tests/FlaubertAuthApi.Tests.csproj --configuration Release --verbosity normal
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    outputs:
+      image-tag: ${{ steps.image-info.outputs.image-tag }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Generate image tag
+        id: image-info
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          SHORT_SHA=${GITHUB_SHA::7}
+          IMAGE_TAG="${BRANCH_NAME}-${SHORT_SHA}"
+          echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "ecr-registry=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
+      
+      - name: Build, tag, and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.image-info.outputs.image-tag }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f src/FlaubertAuthApi/Dockerfile .
+          
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          fi
+          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Install Nomad CLI
+        run: |
+          curl -fsSL https://releases.hashicorp.com/nomad/1.7.2/nomad_1.7.2_linux_amd64.zip -o nomad.zip
+          unzip nomad.zip
+          sudo mv nomad /usr/local/bin/
+      
+      - name: Deploy to Nomad
+        env:
+          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+        run: |
+          nomad job run \
+            -var="image_tag=${IMAGE_TAG}" \
+            -var="ecr_registry=${ECR_REGISTRY}" \
+            flaubert-auth-api.nomad.hcl
+      
+      - name: Check deployment status
+        env:
+          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+        run: |
+          sleep 10
+          nomad job status flaubert-auth-api
