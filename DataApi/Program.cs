@@ -40,7 +40,7 @@ app.UseAuthorization();
 
 // 認証不要
 app.MapGet("/data/api/{version}/health", (string version) =>
-    Results.Ok(new { ok = true, version }))
+    Results.Ok(new { health = true, version }))
    .AllowAnonymous();
 
 // 要認証

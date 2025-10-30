@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DataApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7a98790d3cbf3cd4a7ec6320f3f28f46a2c11279")]
 [assembly: System.Reflection.AssemblyProductAttribute("DataApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DataApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

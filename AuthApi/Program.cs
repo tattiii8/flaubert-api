@@ -52,7 +52,7 @@ app.MapPost("/auth/api/{version}/login", async (string version, LoginRequest req
 });
 
 app.MapGet("/auth/api/{version}/health", (string version) =>
-    Results.Ok(new { ok = true, version }))
+    Results.Ok(new { health = true, version }))
    .AllowAnonymous();
 
 app.Run();
