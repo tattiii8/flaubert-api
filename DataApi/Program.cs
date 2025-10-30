@@ -55,7 +55,7 @@ app.MapGet("/data/api/{version}/issues", (string version, ClaimsPrincipal user) 
 
     var items = new[]
     {
-        new { Id = 1, Subject = "sample", AssignedTo = name, Status = "Open" },
+        new { Id = 1, Subject = "Developpment", AssignedTo = name, Status = "Open" },
         new { Id = 2, Subject = "redmine-integration", AssignedTo = name, Status = "Closed" }
     };
     return Results.Ok(new { version, user = name, items });
