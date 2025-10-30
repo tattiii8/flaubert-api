@@ -34,6 +34,7 @@ job "flaubert-data-api" {
       env {
         ASPNETCORE_URLS = "http://+:8080"
         ASPNETCORE_ENVIRONMENT = "Production"
+        JWT_SECRET   = "wOsiYsPhzZg0wqS6PdQMkI6ZYB0gY/BU12JBK/Oqu8c=%"
       }
 
       resources {
