@@ -53,7 +53,7 @@ job "flaubert-auth-api" {
         
         check {
           type     = "http"
-          path     = "/health"
+          path     = "/auth/api/v1/health"
           interval = "10s"
           timeout  = "2s"
         }

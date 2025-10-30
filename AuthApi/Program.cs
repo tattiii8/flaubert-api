@@ -51,6 +51,10 @@ app.MapPost("/auth/api/{version}/login", async (string version, LoginRequest req
     return Results.Ok(new { access_token = token, token_type = "Bearer", expires_in = 900, version });
 });
 
+app.MapGet("/auth/api/{version}/health", (string version) =>
+    Results.Ok(new { ok = true, version }))
+   .AllowAnonymous();
+
 app.Run();
 
 static string Sha1Hex(string s)
