@@ -9,7 +9,7 @@ variable "ecr_registry" {
   description = "ECR registry URL"
 }
 
-job "flaubert-data-api" {
+job "flaubert-data" {
   datacenters = ["dc1"]
   type        = "service"
 
