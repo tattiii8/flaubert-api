@@ -37,7 +37,7 @@ job "flaubert-auth-api" {
         REDMINE_CONN = "Server=192.168.8.112;Database=redmine;User Id=root;Password=040629602t;Port=3306;"
         JWT_SECRET   = "wOsiYsPhzZg0wqS6PdQMkI6ZYB0gY/BU12JBK/Oqu8c=%"
         }
-      }
+      
 
       resources {
         cpu    = 500
