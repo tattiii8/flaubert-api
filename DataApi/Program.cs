@@ -62,16 +62,5 @@ app.MapGet("/data/api/{version}/issues", (string version, ClaimsPrincipal user) 
 })
 .RequireAuthorization();
 
-app.MapGet("/data/api/{version}/whoami", (string version, ClaimsPrincipal user) =>
-{
-    var claims = user.Claims.Select(c => new { c.Type, c.Value });
-    return Results.Ok(new {
-        version,
-        isAuth = user.Identity?.IsAuthenticated,
-        name   = user.Identity?.Name,
-        claims
-    });
-})
-.RequireAuthorization();
 
 app.Run();

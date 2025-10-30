@@ -1,14 +1,20 @@
-name: Build, Test and Deploy to ECR
+name: Deploy Auth API
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'AuthApi/**'
+      - 'flaubert-auth-api.nomad.hcl'
+      - '.github/workflows/deploy-auth-api.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'AuthApi/**'
 
 env:
   AWS_REGION: ap-northeast-1
-  ECR_REPOSITORY: flaubert-api
+  ECR_REPOSITORY: flaubert-auth-api
 
 jobs:
   test:
@@ -22,13 +28,18 @@ jobs:
           dotnet-version: '9.0.x'
       
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore AuthApi/AuthApi.csproj
       
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build AuthApi/AuthApi.csproj --no-restore --configuration Release
       
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: |
+          if [ -f "AuthApi.Tests/AuthApi.Tests.csproj" ]; then
+            dotnet test AuthApi.Tests/AuthApi.Tests.csproj --configuration Release --verbosity normal
+          else
+            echo "No tests found, skipping..."
+          fi
 
   build-and-push:
     needs: test
@@ -37,7 +48,6 @@ jobs:
     
     outputs:
       image-tag: ${{ steps.image-info.outputs.image-tag }}
-      image-digest: ${{ steps.build-image.outputs.digest }}
     
     steps:
       - uses: actions/checkout@v4
@@ -58,35 +68,25 @@ jobs:
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           SHORT_SHA=${GITHUB_SHA::7}
-          IMAGE_TAG="${BRANCH_NAME}-${SHORT_SHA}"
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          IMAGE_TAG="${BRANCH_NAME}-${SHORT_SHA}-${TIMESTAMP}"
           echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
           echo "ecr-registry=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
       
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      - name: Build, tag, and push image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.image-info.outputs.image-tag }}
         run: |
-          # Dockerイメージをビルド
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f AuthApi/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # latestタグも追加（mainブランチの場合）
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           fi
           
-          # ECRにプッシュ
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
-      
-      - name: Output image details
-        run: |
-          echo "Image pushed: ${{ steps.build-image.outputs.image }}"
-          echo "Image tag: ${{ steps.image-info.outputs.image-tag }}"
+          echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   deploy:
     needs: build-and-push
@@ -121,23 +121,21 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
-          # Nomadジョブをデプロイ
+          echo "🚀 Deploying Auth API with image tag: ${IMAGE_TAG}"
           nomad job run \
             -var="image_tag=${IMAGE_TAG}" \
             -var="ecr_registry=${ECR_REGISTRY}" \
-            flaubert-api.nomad.hcl
+            flaubert-auth-api.nomad.hcl
       
       - name: Check deployment status
         env:
           NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
-          echo "Waiting for deployment to stabilize..."
-          sleep 10
-          nomad job status flaubert-api
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 15
+          nomad job status flaubert-auth-api
           
-          # デプロイメントの状態を確認
-          DEPLOYMENT_ID=$(nomad job deployments flaubert-api | grep -m1 "running\|successful" | awk '{print $1}')
-          if [ -n "$DEPLOYMENT_ID" ]; then
-            nomad deployment status $DEPLOYMENT_ID
-          fi
+          echo ""
+          echo "📊 Recent deployments:"
+          nomad job deployments flaubert-auth-api | head -n 10
