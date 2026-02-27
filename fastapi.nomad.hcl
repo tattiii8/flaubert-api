@@ -19,12 +19,18 @@ job "flaubert-api" {
         ports = ["http"]
       }
 
-      env {
-        DB_HOST     = "192.168.8.78"
-        DB_PORT     = "3306"
-        DB_USER     = "flaubert"
-        DB_PASSWORD = "040629602t"
-        DB_NAME     = "redmine"
+      template {
+        data = <<EOF
+{{ with nomadVar "nomad/jobs/flaubert-api" }}
+DB_HOST={{ .FLAUBERT_DB_HOST }}
+DB_PORT=3306
+DB_USER={{ .FLAUBERT_DB_USER }}
+DB_PASSWORD={{ .FLAUBERT_DB_PASSWORD }}
+DB_NAME={{ .FLAUBERT_DB_NAME }}
+{{ end }}
+EOF
+        destination = "secrets/.env"
+        env         = true
       }
 
       resources {
