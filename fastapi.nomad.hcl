@@ -19,6 +19,14 @@ job "flaubert-api" {
         ports = ["http"]
       }
 
+      env {
+        DB_HOST     = "192.168.8.23"
+        DB_PORT     = "3306"
+        DB_USER     = "proxysql"
+        DB_PASSWORD = "040629602t"
+        DB_NAME     = "redmine"
+      }
+
       resources {
         cpu    = 256
         memory = 256
