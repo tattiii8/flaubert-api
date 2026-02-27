@@ -20,9 +20,9 @@ job "flaubert-api" {
       }
 
       env {
-        DB_HOST     = "192.168.8.23"
+        DB_HOST     = "192.168.8.78"
         DB_PORT     = "3306"
-        DB_USER     = "proxysql"
+        DB_USER     = "flaubert"
         DB_PASSWORD = "040629602t"
         DB_NAME     = "redmine"
       }
