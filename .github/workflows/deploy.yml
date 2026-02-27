@@ -78,7 +78,6 @@ jobs:
       - name: Deploy to Nomad
         env:
           NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
-          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           nomad job run fastapi.nomad.hcl
           echo "✅ Nomadへのデプロイ完了"
@@ -86,7 +85,6 @@ jobs:
       - name: Check deployment status
         env:
           NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
-          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           sleep 5
           nomad job status fastapi-sample
