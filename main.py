@@ -39,6 +39,10 @@ def root():
 def health():
     return {"status": "ok"}
 
+@app.get("/flaubert")
+def root():
+    return {"message": "This is Flaubert API"}
+
 
 @app.get("/users", response_model=List[User])
 async def get_users():
