@@ -1,4 +1,4 @@
-job "fastapi-sample" {
+job "flaubert-api" {
   datacenters = ["dc1"]
   type        = "service"
 
@@ -15,8 +15,12 @@ job "fastapi-sample" {
       driver = "docker"
 
       config {
-        image = "ghcr.io/__GITHUB_OWNER__/__REPO_NAME__:__IMAGE_TAG__"
+        image = "__ECR_IMAGE__"
         ports = ["http"]
+
+        auth {
+          helper = "ecr-login"
+        }
       }
 
       resources {
@@ -25,7 +29,7 @@ job "fastapi-sample" {
       }
 
       service {
-        name = "fastapi-sample"
+        name = "flaubert-api"
         port = "http"
 
         check {
