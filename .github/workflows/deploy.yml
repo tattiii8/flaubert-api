@@ -39,8 +39,10 @@ jobs:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           IMAGE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "✅ ECRへのpush完了: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   deploy:
@@ -72,6 +74,7 @@ jobs:
       - name: Deploy to Nomad
         env:
           NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           nomad job run fastapi.nomad.hcl
           echo "✅ Nomadへのデプロイ完了"
@@ -79,6 +82,7 @@ jobs:
       - name: Check deployment status
         env:
           NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           sleep 5
-          nomad job status fastapi-sample
+          nomad job status flaubert-apis
