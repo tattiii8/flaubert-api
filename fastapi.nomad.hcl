@@ -15,12 +15,9 @@ job "flaubert-api" {
       driver = "docker"
 
       config {
-        image = "__ECR_IMAGE__"
-        ports = ["http"]
-
-        auth {
-          helper = "ecr-login"
-        }
+        image              = "__ECR_IMAGE__"
+        ports              = ["http"]
+        credential_helper  = "ecr-login"
       }
 
       resources {
