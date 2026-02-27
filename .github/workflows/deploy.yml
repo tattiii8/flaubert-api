@@ -85,4 +85,4 @@ jobs:
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           sleep 5
-          nomad job status flaubert-apis
+          nomad job status flaubert-api
