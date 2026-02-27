@@ -5,7 +5,7 @@ app = FastAPI(title="Sample API", version="1.0.0")
 
 @app.get("/")
 def root():
-    return {"message": "Hello from FastAPI!"}
+    return {"message": "Bonjour! from FastAPI!"}
 
 
 @app.get("/health")
