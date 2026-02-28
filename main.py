@@ -35,16 +35,12 @@ def root():
     return {"message": "Bonjour! from FastAPI!"}
 
 
-@app.get("/health")
+@app.get("/api/v1/health")
 def health():
     return {"status": "ok"}
 
-@app.get("/flaubert")
-def root():
-    return {"message": "This is Flaubert API"}
 
-
-@app.get("/users", response_model=List[User])
+@app.get("/api/v1/users", response_model=List[User])
 async def get_users():
     conn = await get_db()
     try:
@@ -58,7 +54,7 @@ async def get_users():
         conn.close()
 
 
-@app.get("/users/{user_id}", response_model=User)
+@app.get("/api/v1/users/{user_id}", response_model=User)
 async def get_user(user_id: int):
     conn = await get_db()
     try:
