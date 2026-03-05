@@ -44,7 +44,7 @@ EOF
 
         check {
           type     = "http"
-          path     = "/api/v1/health"
+          path     = "/"
           interval = "10s"
           timeout  = "2s"
         }
