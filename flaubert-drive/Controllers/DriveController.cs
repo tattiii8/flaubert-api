@@ -38,7 +38,7 @@ namespace Flaubert.Drive.Controllers
         public async Task<IActionResult> GetUploadUrl([FromBody] CreateUploadUrlRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.FileName))
-                return BadRequest("ファイル名が指定されていません。");
+                return BadRequest("ファイル名が指定されていません");
 
             // 認証されたユーザーのクレーム等から TenantId を取得（システムの実装に合わせて調整してください）
             // 例: request.TenantId から受け取る場合は request.TenantId を使用します
