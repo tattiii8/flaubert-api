@@ -4,9 +4,12 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["flaubert-drive.csproj", "./"]
-RUN dotnet restore "flaubert-drive.csproj"
+# ルートからのパスに変更
+COPY ["flaubert-drive/flaubert-drive.csproj", "flaubert-drive/"]
+RUN dotnet restore "flaubert-drive/flaubert-drive.csproj"
+
 COPY . .
+WORKDIR "/src/flaubert-drive"
 RUN dotnet build "flaubert-drive.csproj" -c Release -o /app/build
 
 FROM build AS publish
