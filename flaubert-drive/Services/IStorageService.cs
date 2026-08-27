@@ -17,5 +17,8 @@ namespace Flaubert.Drive.Services
 
         // テナント削除時などに特定プレフィックス（"tenantId/"）配下のオブジェクトを一括削除
         Task DeletePrefixAsync(string prefix);
+
+        // 指定されたプレフィックス配下のすべてのオブジェクトキーを取得
+        Task<System.Collections.Generic.List<string>> ListObjectsAsync(string prefix);
     }
 }

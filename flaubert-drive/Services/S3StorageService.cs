@@ -112,5 +112,40 @@ namespace Flaubert.Drive.Services
 
             } while (listResponse.IsTruncated);
         }
+
+        /// <summary>
+        /// 指定されたプレフィックス配下のすべてのオブジェクトキーを取得します。
+        /// </summary>
+        public async Task<System.Collections.Generic.List<string>> ListObjectsAsync(string prefix)
+        {
+            var keys = new System.Collections.Generic.List<string>();
+            if (string.IsNullOrWhiteSpace(prefix))
+            {
+                return keys;
+            }
+
+            var formattedPrefix = prefix.EndsWith("/") ? prefix : $"{prefix}/";
+
+            var listRequest = new ListObjectsV2Request
+            {
+                BucketName = _bucketName,
+                Prefix = formattedPrefix
+            };
+
+            ListObjectsV2Response listResponse;
+            do
+            {
+                listResponse = await _s3Client.ListObjectsV2Async(listRequest);
+
+                if (listResponse.S3Objects != null && listResponse.S3Objects.Count > 0)
+                {
+                    keys.AddRange(listResponse.S3Objects.Select(o => o.Key));
+                }
+
+                listRequest.ContinuationToken = listResponse.NextContinuationToken;
+            } while (listResponse.IsTruncated);
+
+            return keys;
+        }
     }
 }

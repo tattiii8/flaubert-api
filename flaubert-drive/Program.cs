@@ -49,6 +49,10 @@ if (!string.IsNullOrEmpty(accessKey) && !string.IsNullOrEmpty(secretKey))
 builder.Services.AddAWSService<IAmazonS3>(awsOptions);
 builder.Services.AddScoped<IStorageService, S3StorageService>();
 
+// ポリシー検証 & 監査ログサービスの登録
+builder.Services.AddScoped<ITenantPolicyService, TenantPolicyService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
 // ★ flaubert-auth (RS256 / JWKS) に連動する認証設定
 var authAuthority = builder.Configuration["AUTH_INTERNAL_URL"] 
     ?? "http://192.168.8.112:5001/api/auth";

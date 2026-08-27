@@ -16,6 +16,8 @@ namespace Flaubert.Drive.Data
 
         public DbSet<FileMetadata> Files { get; set; }
         public DbSet<Folder> Folders { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<TenantSetting> TenantSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -27,9 +29,17 @@ namespace Flaubert.Drive.Data
 
             modelBuilder.HasDefaultSchema(schemaName);
 
-            // テーブルマッピングの明示設定
+            // テナント専用テーブルマッピング
             modelBuilder.Entity<FileMetadata>().ToTable("Files");
             modelBuilder.Entity<Folder>().ToTable("Folders");
+            modelBuilder.Entity<AuditLog>().ToTable("AuditLogs");
+
+            // テナント全体共有設定テーブル (public スキーマ)
+            modelBuilder.Entity<TenantSetting>(entity =>
+            {
+                entity.ToTable("TenantSettings", "public");
+                entity.HasKey(e => e.TenantId);
+            });
         }
     }
 }
