@@ -70,7 +70,7 @@ namespace Flaubert.Drive.Controllers
                 return BadRequest("無効なテナントID形式です。英数字、ハイフン、アンダースコアのみ使用できます。");
             }
 
-            // 1. S3 内の対象テナント用フォルダ（{tenantId}/...）のファイルを一括削除
+            // 1. S3 内の対象テナント用フォルダ（{tenantId}/...）のファイルを削除
             try
             {
                 await _storageService.DeletePrefixAsync(tenantId);
