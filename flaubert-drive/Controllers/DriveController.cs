@@ -59,7 +59,7 @@ namespace Flaubert.Drive.Controllers
         /// <summary>
         /// ファイル一覧を取得する（フォルダIDによるフィルタ可能）
         /// </summary>
-        [HttpGet("files")]
+        [HttpGet("object")]
         public async Task<IActionResult> GetFiles([FromQuery] Guid? folderId = null, [FromQuery] bool rootOnly = false)
         {
             var tenantId = GetEffectiveTenantId();
