@@ -5,11 +5,13 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# ソースコード全体を一度に /src にコピーする（またはプロジェクトファイル単位で正確に配置する）
+# リポジトリのルート全体をコピー（flaubert-shared などの依存関係も一緒に取り込むため）
 COPY . .
 
-# 正しいディレクトリから復元とビルドを行う
+# ルートからの相対パスで復元を実行
 RUN dotnet restore "flaubert-drive/flaubert-drive.csproj"
+
+# ビルド実行
 WORKDIR "/src/flaubert-drive"
 RUN dotnet build "flaubert-drive.csproj" -c Release -o /app/build
 
