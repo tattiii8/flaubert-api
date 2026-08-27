@@ -34,7 +34,7 @@ namespace Flaubert.Drive.Controllers
         /// <summary>
         /// S3 へ直接アップロードするための署名付き URL と メタデータレコードを発行・生成する
         /// </summary>
-        [HttpPost("upload-url")]
+        [HttpPost("object")]
         public async Task<IActionResult> GetUploadUrl([FromBody] CreateUploadUrlRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.FileName))
@@ -81,7 +81,7 @@ namespace Flaubert.Drive.Controllers
         /// <summary>
         /// S3 から直接ダウンロードするための署名付き URL を取得する
         /// </summary>
-        [HttpGet("files/{id:guid}/download-url")]
+        [HttpGet("object/{id:guid}")]
         public async Task<IActionResult> GetDownloadUrl(Guid id)
         {
             var fileMetadata = await _dbContext.Files.FindAsync(id);
@@ -100,7 +100,7 @@ namespace Flaubert.Drive.Controllers
             });
         }
 
-        [HttpDelete("files/{id:guid}")]
+        [HttpDelete("object/{id:guid}")]
         public async Task<IActionResult> DeleteFile(Guid id)
         {
             var file = await _dbContext.Files.FindAsync(id);
