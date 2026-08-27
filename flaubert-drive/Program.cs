@@ -1,4 +1,5 @@
 using System;
+using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -27,8 +28,19 @@ builder.Services.AddHttpContextAccessor();
 // ITenantProvider を JwtTenantProvider に登録
 builder.Services.AddScoped<ITenantProvider, JwtTenantProvider>();
 
-// AWS S3 サービスおよび IStorageService の登録
-builder.Services.AddAWSService<IAmazonS3>();
+// ★ AWS 認証情報の設定 (Default Credential Search による IMDS タイムアウト遅延を防止)
+var awsOptions = builder.Configuration.GetAWSOptions();
+
+var accessKey = builder.Configuration["AWS:AccessKey"] ?? builder.Configuration["AWS_ACCESS_KEY_ID"];
+var secretKey = builder.Configuration["AWS:SecretKey"] ?? builder.Configuration["AWS_SECRET_ACCESS_KEY"];
+
+if (!string.IsNullOrEmpty(accessKey) && !string.IsNullOrEmpty(secretKey))
+{
+    awsOptions.Credentials = new BasicAWSCredentials(accessKey, secretKey);
+}
+
+// 明示的な Credentials を割り当てた awsOptions で AmazonS3 を登録
+builder.Services.AddAWSService<IAmazonS3>(awsOptions);
 builder.Services.AddScoped<IStorageService, S3StorageService>();
 
 // ★ flaubert-auth (RS256 / JWKS) に連動する認証設定
