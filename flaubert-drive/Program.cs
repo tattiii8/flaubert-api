@@ -31,6 +31,12 @@ builder.Services.AddScoped<ITenantProvider, JwtTenantProvider>();
 // ★ AWS 認証情報の設定 (Default Credential Search による IMDS タイムアウト遅延を防止)
 var awsOptions = builder.Configuration.GetAWSOptions();
 
+var regionStr = builder.Configuration["AWS:Region"] 
+             ?? builder.Configuration["AWS_REGION"] 
+             ?? "ap-northeast-1";
+
+awsOptions.Region = Amazon.RegionEndpoint.GetBySystemName(regionStr);
+
 var accessKey = builder.Configuration["AWS:AccessKey"] ?? builder.Configuration["AWS_ACCESS_KEY_ID"];
 var secretKey = builder.Configuration["AWS:SecretKey"] ?? builder.Configuration["AWS_SECRET_ACCESS_KEY"];
 
