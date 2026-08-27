@@ -4,8 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Flaubert.Drive</RootNamespace>
-    <AssemblyName>Flaubert.Drive</AssemblyName>
+    <RootNamespace>FlaubertDrive</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
