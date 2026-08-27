@@ -29,7 +29,7 @@ namespace Flaubert.Drive.Controllers
             // SQLインジェクション（パストラバーサル含む）を防ぐための入力検証
             if (string.IsNullOrWhiteSpace(tenantId) || !Regex.IsMatch(tenantId, @"^[a-zA-Z0-9_-]+$"))
             {
-                return BadRequest("無効なテナントID形式です。英数字、ハイフン、アンダースコアのみ使用できます。");
+                return BadRequest("無効なテナントID形式です。英数字、ハイフン、アンダースコアのみ使用できます");
             }
 
             string schemaName = $"app_{tenantId}";
