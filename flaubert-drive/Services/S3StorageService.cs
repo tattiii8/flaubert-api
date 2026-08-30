@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Amazon.S3;
@@ -16,24 +16,14 @@ namespace Flaubert.Drive.Services
         public S3StorageService(IAmazonS3 s3Client, IConfiguration configuration)
         {
             _s3Client = s3Client;
-            _bucketName = configuration["AWS:BucketName"] ?? "my-default-bucket";
+            _bucketName = configuration["AWS:BucketName"] ?? throw new InvalidOperationException("AWS:BucketName is required.");
         }
 
-        /// <summary>
-        /// テナントIDごとのパス（{tenantId}/{Guid}_{fileName}）に保存するための署名付き URL と S3 Key を生成します。
-        /// </summary>
-        public (string UploadUrl, string Key) GeneratePresignedUploadUrl(string tenantId, string fileName, string contentType, double expireMinutes = 15)
+        public (string UploadUrl, string Key) GeneratePresignedUploadUrl(string tenantId, string contentType, double expireMinutes = 15)
         {
-            if (string.IsNullOrWhiteSpace(tenantId))
-            {
-                throw new ArgumentNullException(nameof(tenantId));
-            }
-
-            // パス・トラバーサル防止のためファイル名部分の純粋な名前のみを抽出
-            var safeFileName = Path.GetFileName(fileName);
-
-            // S3 の Key プレフィックス構造を構築: {tenantId}/{Guid}_{safeFileName}
-            var key = $"{tenantId.Trim('/')}/{Guid.NewGuid()}_{safeFileName}";
+            if (string.IsNullOrWhiteSpace(tenantId)) throw new ArgumentNullException(nameof(tenantId));
+            var fileId = Guid.NewGuid();
+            var key = $"{tenantId.Trim('/')}/{fileId:D}";
 
             var request = new GetPreSignedUrlRequest
             {
@@ -44,13 +34,9 @@ namespace Flaubert.Drive.Services
                 ContentType = contentType
             };
 
-            var url = _s3Client.GetPreSignedURL(request);
-            return (url, key);
+            return (_s3Client.GetPreSignedURL(request), key);
         }
 
-        /// <summary>
-        /// ダウンロード用の署名付き URL を生成します。
-        /// </summary>
         public string GeneratePresignedDownloadUrl(string key, double expireMinutes = 15)
         {
             var request = new GetPreSignedUrlRequest
@@ -60,91 +46,70 @@ namespace Flaubert.Drive.Services
                 Verb = HttpVerb.GET,
                 Expires = DateTime.UtcNow.AddMinutes(expireMinutes)
             };
-
             return _s3Client.GetPreSignedURL(request);
         }
 
-        /// <summary>
-        /// 指定された単一オブジェクトを削除します。
-        /// </summary>
-        public async Task DeleteAsync(string key)
+        public async Task DeleteAsync(string key) => await _s3Client.DeleteObjectAsync(_bucketName, key);
+
+        public async Task CopyAsync(string sourceKey, string destinationKey)
         {
-            await _s3Client.DeleteObjectAsync(_bucketName, key);
+            await _s3Client.CopyObjectAsync(new CopyObjectRequest
+            {
+                SourceBucket = _bucketName,
+                SourceKey = sourceKey,
+                DestinationBucket = _bucketName,
+                DestinationKey = destinationKey,
+                MetadataDirective = S3MetadataDirective.COPY
+            });
         }
 
-        /// <summary>
-        /// 指定されたプレフィックス（例: テナントID）配下のすべてのオブジェクトを一括削除します。
-        /// </summary>
+        public async Task<bool> ExistsAsync(string key)
+        {
+            try
+            {
+                await _s3Client.GetObjectMetadataAsync(_bucketName, key);
+                return true;
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return false;
+            }
+        }
+
         public async Task DeletePrefixAsync(string prefix)
         {
-            if (string.IsNullOrWhiteSpace(prefix))
-            {
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(prefix)) return;
+            var formattedPrefix = prefix.EndsWith("/") ? prefix : prefix + "/";
+            var request = new ListObjectsV2Request { BucketName = _bucketName, Prefix = formattedPrefix };
 
-            var formattedPrefix = prefix.EndsWith("/") ? prefix : $"{prefix}/";
-
-            var listRequest = new ListObjectsV2Request
-            {
-                BucketName = _bucketName,
-                Prefix = formattedPrefix
-            };
-
-            ListObjectsV2Response listResponse;
             do
             {
-                listResponse = await _s3Client.ListObjectsV2Async(listRequest);
-
-                if (listResponse.S3Objects.Count > 0)
+                var response = await _s3Client.ListObjectsV2Async(request);
+                if (response.S3Objects.Count > 0)
                 {
-                    var deleteRequest = new DeleteObjectsRequest
+                    await _s3Client.DeleteObjectsAsync(new DeleteObjectsRequest
                     {
                         BucketName = _bucketName,
-                        Objects = listResponse.S3Objects
-                            .Select(obj => new KeyVersion { Key = obj.Key })
-                            .ToList()
-                    };
-
-                    await _s3Client.DeleteObjectsAsync(deleteRequest);
+                        Objects = response.S3Objects.Select(x => new KeyVersion { Key = x.Key }).ToList()
+                    });
                 }
-
-                listRequest.ContinuationToken = listResponse.NextContinuationToken;
-
-            } while (listResponse.IsTruncated);
+                request.ContinuationToken = response.NextContinuationToken;
+                if (!response.IsTruncated) break;
+            } while (true);
         }
 
-        /// <summary>
-        /// 指定されたプレフィックス配下のすべてのオブジェクトキーを取得します。
-        /// </summary>
-        public async Task<System.Collections.Generic.List<string>> ListObjectsAsync(string prefix)
+        public async Task<List<string>> ListObjectsAsync(string prefix)
         {
-            var keys = new System.Collections.Generic.List<string>();
-            if (string.IsNullOrWhiteSpace(prefix))
-            {
-                return keys;
-            }
-
-            var formattedPrefix = prefix.EndsWith("/") ? prefix : $"{prefix}/";
-
-            var listRequest = new ListObjectsV2Request
-            {
-                BucketName = _bucketName,
-                Prefix = formattedPrefix
-            };
-
-            ListObjectsV2Response listResponse;
+            var keys = new List<string>();
+            if (string.IsNullOrWhiteSpace(prefix)) return keys;
+            var request = new ListObjectsV2Request { BucketName = _bucketName, Prefix = prefix.EndsWith("/") ? prefix : prefix + "/" };
             do
             {
-                listResponse = await _s3Client.ListObjectsV2Async(listRequest);
-
-                if (listResponse.S3Objects != null && listResponse.S3Objects.Count > 0)
-                {
-                    keys.AddRange(listResponse.S3Objects.Select(o => o.Key));
-                }
-
-                listRequest.ContinuationToken = listResponse.NextContinuationToken;
-            } while (listResponse.IsTruncated);
-
+                var response = await _s3Client.ListObjectsV2Async(request);
+                keys.AddRange(response.S3Objects.Select(x => x.Key));
+                request.ContinuationToken = response.NextContinuationToken;
+                if (!response.IsTruncated) break;
+            } while (true);
             return keys;
         }
     }

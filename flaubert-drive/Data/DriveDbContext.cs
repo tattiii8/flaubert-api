@@ -7,39 +7,29 @@ namespace Flaubert.Drive.Data
     public class DriveDbContext : DbContext
     {
         private readonly ITenantProvider _tenantProvider;
-
-        public DriveDbContext(DbContextOptions<DriveDbContext> options, ITenantProvider tenantProvider) 
-            : base(options)
-        {
-            _tenantProvider = tenantProvider;
-        }
-
-        public DbSet<FileMetadata> Files { get; set; }
-        public DbSet<Folder> Folders { get; set; }
-        public DbSet<AuditLog> AuditLogs { get; set; }
-        public DbSet<TenantSetting> TenantSettings { get; set; }
+        public DriveDbContext(DbContextOptions<DriveDbContext> options, ITenantProvider tenantProvider) : base(options) => _tenantProvider = tenantProvider;
+        public DbSet<FileMetadata> Files { get; set; } = null!;
+        public DbSet<Folder> Folders { get; set; } = null!;
+        public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+        public DbSet<TenantSetting> TenantSettings { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
-            // リクエストヘッダーからテナントIDを取得し、スキーマ名 (app_{tenantId}) を動的指定
             var tenantId = _tenantProvider.GetTenantId();
-            var schemaName = $"app_{tenantId}";
-
-            modelBuilder.HasDefaultSchema(schemaName);
-
-            // テナント専用テーブルマッピング
-            modelBuilder.Entity<FileMetadata>().ToTable("Files");
-            modelBuilder.Entity<Folder>().ToTable("Folders");
-            modelBuilder.Entity<AuditLog>().ToTable("AuditLogs");
-
-            // テナント全体共有設定テーブル (public スキーマ)
-            modelBuilder.Entity<TenantSetting>(entity =>
+            modelBuilder.HasDefaultSchema($"app_{tenantId}");
+            modelBuilder.Entity<FileMetadata>(e =>
             {
-                entity.ToTable("TenantSettings", "public");
-                entity.HasKey(e => e.TenantId);
+                e.ToTable("Files"); e.HasKey(x => x.Id); e.Property(x => x.StorageKey).HasColumnName("StorageKey");
+                e.HasIndex(x => new { x.TenantId, x.FolderId }); e.HasIndex(x => new { x.TenantId, x.StorageKey }).IsUnique();
+                e.HasOne<Folder>().WithMany().HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.SetNull);
             });
+            modelBuilder.Entity<Folder>(e =>
+            {
+                e.ToTable("Folders"); e.HasKey(x => x.Id); e.HasIndex(x => new { x.TenantId, x.ParentId });
+            });
+            modelBuilder.Entity<AuditLog>().ToTable("AuditLogs");
+            modelBuilder.Entity<TenantSetting>(e => { e.ToTable("TenantSettings", "public"); e.HasKey(x => x.TenantId); });
         }
     }
 }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Flaubert.Drive.Models;
-
 namespace Flaubert.Drive.Services
 {
     public interface IAuditLogService

@@ -1,0 +1,8 @@
+# Program.cs の追加変更
+
+builder.Services.AddScoped<IStorageService, S3StorageService>();
+builder.Services.AddScoped<IVirtualFileSystemService, VirtualFileSystemService>();
+
+# 既存の以下は維持
+builder.Services.AddScoped<ITenantPolicyService, TenantPolicyService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();

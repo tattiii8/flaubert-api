@@ -6,17 +6,20 @@ namespace Flaubert.Drive.Models
     public class FileMetadata
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public string TenantId { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
         public string ContentType { get; set; } = string.Empty;
         public long ByteSize { get; set; }
-        public string StoragePath { get; set; } = string.Empty;
+        public string StorageKey { get; set; } = string.Empty;
         public Guid? FolderId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public class Folder
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public string TenantId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public Guid? ParentId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -25,9 +28,9 @@ namespace Flaubert.Drive.Models
     public class TenantSetting
     {
         public string TenantId { get; set; } = string.Empty;
-        public long MaxStorageBytes { get; set; } = 5368709120; // 5 GB default
-        public long MaxFileSizeBytes { get; set; } = 524288000; // 500 MB default
-        public string Status { get; set; } = "Active"; // Active, ReadOnly, Suspended
+        public long MaxStorageBytes { get; set; } = 5368709120;
+        public long MaxFileSizeBytes { get; set; } = 524288000;
+        public string Status { get; set; } = "Active";
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
@@ -42,8 +45,6 @@ namespace Flaubert.Drive.Models
         public string? IpAddress { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
-
-    // --- DTOs ---
 
     public class TenantStatsDto
     {
@@ -69,8 +70,8 @@ namespace Flaubert.Drive.Models
     public class OrphanDetectionResult
     {
         public string TenantId { get; set; } = string.Empty;
-        public List<string> DanglingS3Objects { get; set; } = new(); // In S3 but missing in DB
-        public List<FileMetadata> MissingS3Objects { get; set; } = new(); // In DB but missing in S3
+        public List<string> DanglingS3Objects { get; set; } = new();
+        public List<FileMetadata> MissingS3Objects { get; set; } = new();
         public int DanglingS3Count => DanglingS3Objects.Count;
         public int MissingS3Count => MissingS3Objects.Count;
     }
