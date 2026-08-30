@@ -267,7 +267,7 @@ Write-Host "[5] Create upload URL" -ForegroundColor Yellow
 
 $UploadResponse = Invoke-DriveApi `
     -Method "POST" `
-    -Uri "$BaseUrl/objects" `
+    -Uri "$BaseUrl/object" `
     -Body @{
         fileName = "episode001.txt"
         contentType = "text/plain"
@@ -340,26 +340,26 @@ Write-Host "[7] GET object" -ForegroundColor Yellow
 
 $Object = Invoke-DriveApi `
     -Method "GET" `
-    -Uri "$BaseUrl/objects/$ObjectId"
+    -Uri "$BaseUrl/object/$ObjectId"
 
 Write-Host ""
 Write-Host "Object:"
 $Object | ConvertTo-Json -Depth 10
 
 # ============================================================
-# 8. GET objects in folder
+# 8. GET object in folder
 # ============================================================
 
 Write-Host ""
-Write-Host "[8] GET objects by folderId" -ForegroundColor Yellow
+Write-Host "[8] GET object by folderId" -ForegroundColor Yellow
 
-$FolderObjects = Invoke-DriveApi `
+$Folderobject = Invoke-DriveApi `
     -Method "GET" `
-    -Uri "$BaseUrl/objects?folderId=$ChildId"
+    -Uri "$BaseUrl/object?folderId=$ChildId"
 
 Write-Host ""
-Write-Host "Objects in child folder:"
-$FolderObjects | ConvertTo-Json -Depth 10
+Write-Host "object in child folder:"
+$Folderobject | ConvertTo-Json -Depth 10
 
 # ============================================================
 # 9. Rename child folder
@@ -387,7 +387,7 @@ Write-Host "[10] Verify object after folder rename" -ForegroundColor Yellow
 
 $ObjectAfterFolderRename = Invoke-DriveApi `
     -Method "GET" `
-    -Uri "$BaseUrl/objects/$ObjectId"
+    -Uri "$BaseUrl/object/$ObjectId"
 
 Write-Host ""
 $ObjectAfterFolderRename | ConvertTo-Json -Depth 10
@@ -421,7 +421,7 @@ Write-Host "[12] Verify object after root rename" -ForegroundColor Yellow
 
 $ObjectAfterRootRename = Invoke-DriveApi `
     -Method "GET" `
-    -Uri "$BaseUrl/objects/$ObjectId"
+    -Uri "$BaseUrl/object/$ObjectId"
 
 Write-Host ""
 $ObjectAfterRootRename | ConvertTo-Json -Depth 10
@@ -455,7 +455,7 @@ Write-Host "[14] Delete object" -ForegroundColor Yellow
 
 Invoke-DriveApi `
     -Method "DELETE" `
-    -Uri "$BaseUrl/objects/$ObjectId" | Out-Null
+    -Uri "$BaseUrl/object/$ObjectId" | Out-Null
 
 Write-Host "[PASS] Object deleted" -ForegroundColor Green
 
