@@ -78,7 +78,7 @@ namespace Flaubert.Drive.Controllers
                     ""FileName"" VARCHAR(255) NOT NULL,
                     ""ContentType"" VARCHAR(100),
                     ""ByteSize"" BIGINT NOT NULL DEFAULT 0,
-                    ""StoragePath"" TEXT NOT NULL,
+                    ""StorageKey"" TEXT NOT NULL,
                     ""FolderId"" UUID REFERENCES ""{schemaName}"".""Folders""(""Id"") ON DELETE SET NULL,
                     ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );";
@@ -317,7 +317,7 @@ namespace Flaubert.Drive.Controllers
                     await conn.OpenAsync();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = $@"
-                        SELECT ""Id"", ""FileName"", ""ContentType"", ""ByteSize"", ""StoragePath"", ""FolderId"", ""CreatedAt""
+                        SELECT ""Id"", ""FileName"", ""ContentType"", ""ByteSize"", ""StorageKey"", ""FolderId"", ""CreatedAt""
                         FROM ""{schemaName}"".""Files"";";
 
                     using var reader = await cmd.ExecuteReaderAsync();
@@ -329,20 +329,20 @@ namespace Flaubert.Drive.Controllers
                             FileName = reader.GetString(1),
                             ContentType = reader.IsDBNull(2) ? "" : reader.GetString(2),
                             ByteSize = reader.GetInt64(3),
-                            StoragePath = reader.GetString(4),
+                            StorageKey = reader.GetString(4),
                             FolderId = reader.IsDBNull(5) ? null : reader.GetGuid(5),
                             CreatedAt = reader.GetDateTime(6)
                         });
                     }
                 }
 
-                var dbKeySet = new HashSet<string>(dbFiles.Select(f => f.StoragePath));
+                var dbKeySet = new HashSet<string>(dbFiles.Select(f => f.StorageKey));
 
                 // 3. 不整合の検出
                 // S3にあるがDBにないもの
                 var danglingInS3 = s3Keys.Where(k => !dbKeySet.Contains(k)).ToList();
                 // DBにあるがS3にないもの
-                var missingInS3 = dbFiles.Where(f => !s3KeySet.Contains(f.StoragePath)).ToList();
+                var missingInS3 = dbFiles.Where(f => !s3KeySet.Contains(f.StorageKey)).ToList();
 
                 var result = new OrphanDetectionResult
                 {
