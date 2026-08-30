@@ -1,3 +1,4 @@
+
 using System;
 using System.Linq;
 using System.Security.Claims;
@@ -101,14 +102,6 @@ namespace Flaubert.Drive.Controllers
         /// S3アップロード用Presigned URLを発行
         ///
         /// POST /api/drive/object
-        ///
-        /// 仮想パス:
-        ///     Files.FolderId
-        ///     Folders.ParentId
-        ///     Files.FileName
-        ///
-        /// 物理ストレージ:
-        ///     Files.StorageKey
         /// </summary>
         [HttpPost("object")]
         public async Task<IActionResult> GetUploadUrl(
@@ -152,7 +145,7 @@ namespace Flaubert.Drive.Controllers
                 tenantId,
                 request.ByteSize);
 
-            // 指定されたフォルダが同一テナントに存在することを確認
+            // 指定された仮想フォルダが同一テナントに存在することを確認
             if (request.FolderId.HasValue)
             {
                 var folderExists =
@@ -176,7 +169,8 @@ namespace Flaubert.Drive.Controllers
 
             // S3物理キーを生成。
             //
-            // ここでは仮想フォルダパスをS3キーに含めない。
+            // 仮想フォルダ階層はDBで管理するため、
+            // S3キーにはフォルダパスを含めない。
             var (uploadUrl, key) =
                 _storage.GeneratePresignedUploadUrl(
                     tenantId,
@@ -207,6 +201,11 @@ namespace Flaubert.Drive.Controllers
                     tenantId,
                     file);
 
+            // objectIdを明示的に返却。
+            //
+            // テストクライアント等から
+            // GET /api/drive/object/{objectId}
+            // を呼び出せるようにする。
             return Ok(new
             {
                 objectId = file.Id,
@@ -306,8 +305,11 @@ namespace Flaubert.Drive.Controllers
                 });
             }
 
-            await _storage.DeleteAsync(
-                file.StorageKey);
+            if (!string.IsNullOrWhiteSpace(file.StorageKey))
+            {
+                await _storage.DeleteAsync(
+                    file.StorageKey);
+            }
 
             _db.Files.Remove(file);
 
@@ -451,9 +453,6 @@ namespace Flaubert.Drive.Controllers
         /// 仮想フォルダ更新
         ///
         /// PUT /api/drive/folders/{id}
-        ///
-        /// フォルダ名やParentIdを変更しても、
-        /// S3のStorageKeyは変更しない。
         /// </summary>
         [HttpPut("folders/{id:guid}")]
         public async Task<IActionResult> UpdateFolder(
@@ -556,12 +555,17 @@ namespace Flaubert.Drive.Controllers
         ///
         /// DELETE /api/drive/folders/{id}
         ///
-        /// 対象フォルダ以下の
+        /// 対象フォルダ以下の、
         ///   - ファイル
         ///   - 子フォルダ
         /// を削除する。
         ///
-        /// S3上の物理ファイルも削除する。
+        /// S3上の物理オブジェクトも削除する。
+        ///
+        /// EF CoreのChangeTrackerによる
+        /// Folderインスタンス競合を避けるため、
+        /// 削除処理ではExecuteDeleteAsync / ExecuteUpdateAsync
+        /// を使用する。
         /// </summary>
         [HttpDelete("folders/{id:guid}")]
         public async Task<IActionResult> DeleteFolder(Guid id)
@@ -579,12 +583,7 @@ namespace Flaubert.Drive.Controllers
             await _policy.ValidateWriteAccessAsync(tenantId);
 
             // --------------------------------------------------------
-            // 重要:
-            // 対象フォルダをTracking状態で取得してから、
-            // 同じDbContextで別途全フォルダをTracking取得すると、
-            // EF CoreのChangeTracker上で競合する可能性がある。
-            //
-            // そのため削除処理では最初からAsNoTracking()を使用する。
+            // 対象テナントのフォルダをChangeTrackerに登録せず取得
             // --------------------------------------------------------
 
             var allFolders =
@@ -606,7 +605,7 @@ namespace Flaubert.Drive.Controllers
             }
 
             // --------------------------------------------------------
-            // 対象フォルダ + すべての子孫フォルダを取得
+            // 対象フォルダ + すべての子孫フォルダ
             // --------------------------------------------------------
 
             var folderIds =
@@ -622,6 +621,9 @@ namespace Flaubert.Drive.Controllers
 
             // --------------------------------------------------------
             // 配下ファイル取得
+            //
+            // S3削除にStorageKeyが必要なので、
+            // 削除前に読み込んでおく。
             // --------------------------------------------------------
 
             var files =
@@ -648,84 +650,76 @@ namespace Flaubert.Drive.Controllers
             }
 
             // --------------------------------------------------------
-            // DB削除
+            // Files削除
             //
-            // AsNoTrackingで取得したエンティティなので、
-            // Attach + Deleted ではなく RemoveRange で明示的に削除。
+            // ExecuteDeleteAsyncなのでChangeTrackerを使用しない。
             // --------------------------------------------------------
 
-            if (files.Count > 0)
+            if (folderIds.Count > 0)
             {
-                _db.Files.RemoveRange(files);
+                await _db.Files
+                    .Where(x =>
+                        x.TenantId == tenantId &&
+                        x.FolderId.HasValue &&
+                        folderIds.Contains(
+                            x.FolderId.Value))
+                    .ExecuteDeleteAsync();
             }
 
             // --------------------------------------------------------
-            // 自己参照FK ParentId対策
+            // Folder自己参照FK解除
             //
-            // 親を削除する前に、削除対象フォルダのParentIdをNULLにする。
+            // 削除対象フォルダのParentIdをNULLにする。
             //
-            // これにより自己参照FKが存在するDBでも、
-            // 親子関係を解除してから削除できる。
+            // これにより、
+            //
+            // root
+            // └── child
+            //
+            // のような自己参照FKが存在していても、
+            // 親削除時のFK制約を回避できる。
+            // --------------------------------------------------------
+
+            if (folderIds.Count > 0)
+            {
+                await _db.Folders
+                    .Where(x =>
+                        x.TenantId == tenantId &&
+                        folderIds.Contains(x.Id))
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(
+                            x => x.ParentId,
+                            (Guid?)null));
+            }
+
+            // --------------------------------------------------------
+            // 深いフォルダから順番に削除
+            //
+            // ChangeTrackerを一切使用しない。
             // --------------------------------------------------------
 
             var foldersToDelete =
                 allFolders
-                    .Where(x => folderIds.Contains(x.Id))
+                    .Where(x =>
+                        folderIds.Contains(x.Id))
+                    .OrderByDescending(
+                        x => GetDepth(
+                            allFolders,
+                            x.Id))
                     .ToList();
 
             foreach (var folderToDelete in foldersToDelete)
             {
-                var stub = new Folder
-                {
-                    Id = folderToDelete.Id,
-                    TenantId = folderToDelete.TenantId,
-                    Name = folderToDelete.Name,
-                    ParentId = null,
-                    CreatedAt = folderToDelete.CreatedAt
-                };
-
-                _db.Folders.Attach(stub);
-
-                stub.ParentId = null;
-
-                _db.Entry(stub)
-                    .Property(x => x.ParentId)
-                    .IsModified = true;
+                await _db.Folders
+                    .Where(x =>
+                        x.TenantId == tenantId &&
+                        x.Id == folderToDelete.Id)
+                    .ExecuteDeleteAsync();
             }
 
-            await _db.SaveChangesAsync();
-
             // --------------------------------------------------------
-            // ParentIdをNULLにした後、改めて削除。
-            //
-            // 子フォルダ → 親フォルダの順番で削除する。
+            // Audit
             // --------------------------------------------------------
-
-            var foldersForDelete =
-                foldersToDelete
-                    .OrderByDescending(x =>
-                        GetDepth(
-                            foldersToDelete,
-                            x.Id))
-                    .ToList();
-
-            foreach (var folderToDelete in foldersForDelete)
-            {
-                var stub = new Folder
-                {
-                    Id = folderToDelete.Id,
-                    TenantId = folderToDelete.TenantId,
-                    Name = folderToDelete.Name,
-                    ParentId = null,
-                    CreatedAt = folderToDelete.CreatedAt
-                };
-
-                _db.Folders.Attach(stub);
-
-                _db.Folders.Remove(stub);
-
-                await _db.SaveChangesAsync();
-            }
 
             await _audit.LogActionAsync(
                 "FolderDeleted",
@@ -740,7 +734,7 @@ namespace Flaubert.Drive.Controllers
         // ============================================================
 
         /// <summary>
-        /// 指定したfolderがancestorの子孫か判定する。
+        /// idがancestorの子孫フォルダか判定する。
         /// </summary>
         private static bool IsChild(
             System.Collections.Generic.List<Folder> all,
@@ -758,6 +752,7 @@ namespace Flaubert.Drive.Controllers
             {
                 if (!visited.Add(current.Id))
                 {
+                    // 循環参照がある場合は安全側に倒す
                     return false;
                 }
 
@@ -775,8 +770,8 @@ namespace Flaubert.Drive.Controllers
         }
 
         /// <summary>
-        /// 指定フォルダの階層深度を取得する。
-        /// 削除時に深い階層から処理するために使用する。
+        /// フォルダの階層深度を取得する。
+        /// 深いフォルダから削除するために使用する。
         /// </summary>
         private static int GetDepth(
             System.Collections.Generic.List<Folder> all,
