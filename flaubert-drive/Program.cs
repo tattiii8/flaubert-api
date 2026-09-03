@@ -25,7 +25,7 @@ builder.Services.AddScoped<ITenantProvider, JwtTenantProvider>();
 var awsOptions = builder.Configuration.GetAWSOptions();
 var regionStr = builder.Configuration["AWS:Region"] ?? builder.Configuration["AWS_REGION"] ?? "ap-northeast-1";
 awsOptions.Region = Amazon.RegionEndpoint.GetBySystemName(regionStr);
-var accessKey = builder.Configuration["AWS:AccessKey"] ?? builder.Configuration["AWS_ACCESS_KEY_ID"];
+var accessKey = builder.Configuration["AWS:AccessKey"] ?? builder.Configuration["AWS_SECRET_ACCESS_KEY"];
 var secretKey = builder.Configuration["AWS:SecretKey"] ?? builder.Configuration["AWS_SECRET_ACCESS_KEY"];
 if (!string.IsNullOrEmpty(accessKey) && !string.IsNullOrEmpty(secretKey)) awsOptions.Credentials = new BasicAWSCredentials(accessKey, secretKey);
 builder.Services.AddAWSService<IAmazonS3>(awsOptions);
@@ -46,7 +46,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 
-// ★ CORS サービスの定義追加
+// ★ CORS サービスの定義
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -77,15 +77,24 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddHealthChecks().AddDbContextCheck<DriveDbContext>("Database");
 
 var app = builder.Build();
+
 app.UseForwardedHeaders();
 app.UsePathBase("/api/drive");
+
+// ★★★ 必須: ルーティングと CORS ミドルウェアの適用 ★★★
+app.UseRouting();
+app.UseCors(); // UseRouting の直後、認証ミドルウェアの前に配置
+
 if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/drive/swagger/v1/swagger.json", "flaubert-drive API v1"); c.RoutePrefix = "swagger"; });
 }
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 app.MapHealthChecks("/health");
+
 app.Run();
