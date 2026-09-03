@@ -46,6 +46,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 
+// ★ CORS サービスの定義追加
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()   // 本番環境でドメインを制限したい場合は .WithOrigins("http://flaubert.lesure.net") に変更
+              .AllowAnyMethod()   // GET, POST, OPTIONS 等の全メソッドを許可
+              .AllowAnyHeader();  // Authorization 等の全ヘッダーを許可
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
